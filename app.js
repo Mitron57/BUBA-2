@@ -61,7 +61,6 @@ function setModelOptions(models, selected, extraLabel) {
 function showSuggestedModels(provider, selected = providers[provider].models[0]) {
   setModelOptions(providers[provider].models.map(id => ({ id })), selected, "saved model");
   modelStatus.textContent = "Suggested models. Enter your key to load the provider’s catalog.";
-  $("#apiRefreshModels").disabled = !$("#apiKey").value.trim();
 }
 
 function cancelModelLoad() {
@@ -72,18 +71,23 @@ function cancelModelLoad() {
 
 async function loadModelOptions() {
   cancelModelLoad();
-  const key = $("#apiKey").value.trim();
-  if (!key) return;
+  const keyInput = $("#apiKey");
+  const key = keyInput.value.trim();
+  if (!key) {
+    modelStatus.textContent = "Enter your API key to refresh the model list.";
+    keyInput.focus();
+    return;
+  }
 
   const provider = $("#apiProvider").value;
   const request = new AbortController();
+  const timeout = setTimeout(() => request.abort(), 15000);
   modelRequest = request;
-  modelStatus.textContent = "Loading models…";
-  $("#apiRefreshModels").disabled = true;
+  modelStatus.textContent = `Loading models from ${providers[provider].name}…`;
 
   try {
     const models = await listModels(provider, key, request.signal);
-    if (request.signal.aborted || !apiSettings.open) return;
+    if (modelRequest !== request || !apiSettings.open) return;
     if (!models.length) {
       modelStatus.textContent = "No chat models were returned. You can use a suggested model or enter a model ID.";
       return;
@@ -99,14 +103,14 @@ async function loadModelOptions() {
     setModelOptions(models, selected, "outside catalog");
     modelStatus.textContent = `${models.length} ${models.length === 1 ? "model" : "models"} from ${providers[provider].name}.`;
   } catch (error) {
-    if (request.signal.aborted || !apiSettings.open) return;
-    const reason = error instanceof TypeError ? "Could not reach the provider’s catalog." : error.message;
+    if (modelRequest !== request || !apiSettings.open) return;
+    const reason = request.signal.aborted
+      ? "The provider took too long to respond. Try refreshing again."
+      : error instanceof TypeError ? "Could not reach the provider’s catalog." : error.message;
     modelStatus.textContent = `${reason} You can still choose from the list or enter a model ID.`;
   } finally {
-    if (modelRequest === request) {
-      modelRequest = null;
-      $("#apiRefreshModels").disabled = !$("#apiKey").value.trim();
-    }
+    clearTimeout(timeout);
+    if (modelRequest === request) modelRequest = null;
   }
 }
 

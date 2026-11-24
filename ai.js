@@ -119,12 +119,20 @@ export async function listModels(provider, key, signal) {
   do {
     if (nextPage) url.searchParams.set(...nextPage);
     const response = await fetch(url.toString(), {
+      method: "GET",
       headers: api.headers(key),
+      cache: "no-store",
       credentials: "omit",
       redirect: "error",
       signal
     });
 
+    const googleError = provider === "gemini" && response.status === 400
+      ? await response.json().catch(() => null)
+      : null;
+    if (googleError?.error?.details?.some(detail => detail.reason === "API_KEY_INVALID")) {
+      throw new Error("Google rejected this API key. Check the Gemini API key in Google AI Studio.");
+    }
     if (response.status === 401 || response.status === 403) {
       throw new Error("Check your API key and its permissions.");
     }

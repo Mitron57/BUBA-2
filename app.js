@@ -1,4 +1,13 @@
-import { listModels, providers, requestAnswer } from "./ai.js";
+import { listModels, providers, streamAnswer } from "./ai.js";
+import markdownit from "./vendor/markdown-it-15.0.3.mjs";
+
+const markdown = markdownit({ html: false, breaks: true });
+const renderImage = markdown.renderer.rules.image;
+markdown.renderer.rules.image = (tokens, index, ...args) => {
+  tokens[index].attrSet("loading", "lazy");
+  tokens[index].attrSet("referrerpolicy", "no-referrer");
+  return renderImage(tokens, index, ...args);
+};
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -12,7 +21,7 @@ let stories = store.get("stories", []);
 let currentStory = null;
 let messages = [];
 let busy = false;
-let pendingChat = null;
+let pendingReply = null;
 let modalType = "";
 const apiSettings = $("#apiSettings");
 const apiStorageKey = "buba_api_settings";
@@ -211,19 +220,47 @@ function switchView(view){
 $$(".nav-item").forEach(b=>b.addEventListener("click",()=>switchView(b.dataset.view)));
 $("#focusBtn").onclick=()=>document.body.classList.toggle("focus");
 
-function renderMessages(){
-  const box=$("#messages");box.innerHTML="";
-  const visibleMessages = pendingChat === messages
-    ? [...messages, { role: "assistant", content: "…" }]
-    : messages;
-  visibleMessages.forEach(m=>{
-    const row=document.createElement("div");row.className="message "+m.role;
-    const avatar=document.createElement("div");avatar.className="message-avatar";avatar.textContent=m.role==="assistant"?"b.":"Y";
-    const body=document.createElement("div");body.className="message-body";
-    if(m.role==="assistant"){const label=document.createElement("div");label.className="message-label";label.textContent="BUBA";body.append(label);}
-    const content=document.createElement("div");content.textContent=m.content;body.append(content);row.append(avatar,body);box.append(row);
-  });
-  box.scrollTop=box.scrollHeight;
+function renderMessageContent(element, message) {
+  if (message.role === "assistant") {
+    element.classList.add("markdown");
+    element.innerHTML = markdown.render(message.content || "…");
+  } else {
+    element.textContent = message.content;
+  }
+}
+
+function renderMessages() {
+  const box = $("#messages");
+  const reply = pendingReply?.chat === messages ? pendingReply : null;
+  box.replaceChildren();
+  for (const message of reply ? [...messages, reply] : messages) {
+    const row = document.createElement("div");
+    row.classList.add("message", message.role);
+    if (message === reply) {
+      row.classList.add("streaming");
+      row.setAttribute("aria-busy", "true");
+    }
+
+    const avatar = document.createElement("div");
+    avatar.className = "message-avatar";
+    avatar.textContent = message.role === "assistant" ? "b." : "Y";
+
+    const body = document.createElement("div");
+    body.className = "message-body";
+    if (message.role === "assistant") {
+      const label = document.createElement("div");
+      label.className = "message-label";
+      label.textContent = "BUBA";
+      body.append(label);
+    }
+    const content = document.createElement("div");
+    content.className = "message-content";
+    renderMessageContent(content, message);
+    body.append(content);
+    row.append(avatar, body);
+    box.append(row);
+  }
+  box.scrollTop = box.scrollHeight;
 }
 function showWelcome(show){$("#welcome").style.display=show?"block":"none";}
 function newStory(){
@@ -287,23 +324,32 @@ async function sendMessage(prefill){
 
   busy = true;
   $("#sendBtn").disabled = true;
-  pendingChat = chat;
+  const reply = { role: "assistant", content: "", chat };
+  pendingReply = reply;
   renderMessages();
 
+  let renderFrame = null;
   try {
     const payload = chat.slice(-24);
-    const answer = await requestAnswer(apiConfig, buildSystemPrompt(), payload);
-    chat.push({
-      role: "assistant",
-      content: answer || "I couldn't generate a response. Try again."
-    });
+    for await (const text of streamAnswer(apiConfig, buildSystemPrompt(), payload)) {
+      reply.content += text;
+      if (currentStory !== story || renderFrame !== null) continue;
+      renderFrame = requestAnimationFrame(() => {
+        renderFrame = null;
+        if (currentStory !== story) return;
+        renderMessageContent($("#messages .streaming .message-content"), reply);
+      });
+    }
+    if (!reply.content) reply.content = "I couldn't generate a response. Try again.";
   } catch (error) {
     toast(error instanceof TypeError
       ? "Could not reach the AI provider. Check your connection and try again."
       : error.message);
   } finally {
+    if (renderFrame !== null) cancelAnimationFrame(renderFrame);
+    if (reply.content) chat.push({ role: reply.role, content: reply.content });
     busy = false;
-    pendingChat = null;
+    pendingReply = null;
     $("#sendBtn").disabled = false;
     if (currentStory === story) {
       renderMessages();

@@ -15,3 +15,18 @@
 .api-model-picker select{flex:1;min-width:0;text-overflow:ellipsis}
 .api-model-picker button{white-space:nowrap}
 #apiModelStatus{margin:6px 0 0}
+
+.markdown{white-space:normal}
+.markdown > :first-child{margin-top:0}
+.markdown > :last-child{margin-bottom:0}
+.markdown :is(p,ul,ol,pre,blockquote,table){margin:0.8em 0}
+.markdown :is(ul,ol){padding-inline-start:1.65em}
+.markdown a{color:var(--accent2);text-underline-offset:.18em}
+.markdown blockquote{border-inline-start:2px solid var(--accent);padding-inline-start:1em;color:#c7bdcb}
+.markdown code{font-family:ui-monospace,monospace;background:var(--panel2);border-radius:4px;padding:.15em .3em}
+.markdown pre{white-space:pre;overflow-x:auto;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px}
+.markdown pre code{padding:0;background:none}
+.markdown table{display:block;overflow-x:auto;border-collapse:collapse}
+.markdown :is(th,td){border:1px solid var(--line);padding:5px 9px}
+.markdown img{max-width:100%;height:auto}
+.markdown hr{border:0;border-top:1px solid var(--line)}

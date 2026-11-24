@@ -17,12 +17,14 @@ export const providers = {
         url: "https://api.openai.com/v1/chat/completions",
         body: {
           model,
+          stream: true,
           messages: [{ role: "system", content: systemPrompt }, ...messages]
         }
       };
     },
-    answer(data) {
-      return data.choices?.[0]?.message?.content;
+    delta(data) {
+      const delta = data.choices?.[0]?.delta;
+      return delta?.content ?? delta?.refusal;
     }
   },
   anthropic: {
@@ -43,11 +45,16 @@ export const providers = {
     request(model, systemPrompt, messages) {
       return {
         url: "https://api.anthropic.com/v1/messages",
-        body: { model, system: systemPrompt, messages, max_tokens: 1800 }
+        body: { model, system: systemPrompt, messages, max_tokens: 1800, stream: true }
       };
     },
-    answer(data) {
-      return data.content?.filter(part => part.type === "text").map(part => part.text).join("\n");
+    delta(data) {
+      if (data.type === "content_block_start" && data.content_block.type === "text") {
+        return data.content_block.text;
+      }
+      if (data.type === "content_block_delta" && data.delta.type === "text_delta") {
+        return data.delta.text;
+      }
     }
   },
   gemini: {
@@ -66,7 +73,7 @@ export const providers = {
     },
     request(model, systemPrompt, messages) {
       return {
-        url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`,
         body: {
           systemInstruction: { parts: [{ text: systemPrompt }] },
           contents: messages.map(message => ({
@@ -77,18 +84,19 @@ export const providers = {
         }
       };
     },
-    answer(data) {
-      return data.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("");
+    delta(data) {
+      return data.candidates?.[0]?.content?.parts
+        ?.filter(part => !part.thought).map(part => part.text ?? "").join("");
     }
   }
 };
 
-export async function requestAnswer({ provider, key, model }, systemPrompt, messages) {
+export async function* streamAnswer({ provider, key, model }, systemPrompt, messages) {
   const api = providers[provider];
   const { url, body } = api.request(model, systemPrompt, messages);
   const response = await fetch(url, {
     method: "POST",
-    headers: { "content-type": "application/json", ...api.headers(key) },
+    headers: { "content-type": "application/json", accept: "text/event-stream", ...api.headers(key) },
     credentials: "omit",
     redirect: "error",
     body: JSON.stringify(body)
@@ -107,7 +115,63 @@ export async function requestAnswer({ provider, key, model }, systemPrompt, mess
     throw new Error(`${api.name} request failed (HTTP ${response.status}).`);
   }
 
-  return api.answer(await response.json());
+  if (!response.body || !response.headers.get("content-type")?.includes("text/event-stream")) {
+    throw new Error(`${api.name} did not return a streaming response.`);
+  }
+
+  let geminiFinished = false;
+  for await (const event of readEventStream(response.body)) {
+    if (event === "[DONE]" && provider === "openai") return;
+
+    const data = JSON.parse(event);
+    if (data.error || data.type === "error") {
+      throw new Error(`${api.name} returned an error while generating the response.`);
+    }
+    if (provider === "anthropic" && data.type === "message_stop") return;
+    if (provider === "gemini") {
+      if (data.promptFeedback?.blockReason) throw new Error("Gemini blocked this request.");
+      geminiFinished ||= Boolean(data.candidates?.[0]?.finishReason);
+    }
+
+    const text = api.delta(data);
+    if (text) yield text;
+  }
+
+  if (!geminiFinished) {
+    throw new Error(`${api.name} closed the connection before completing the response.`);
+  }
+}
+
+async function* readEventStream(body) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let pending = "";
+  let data = [];
+  let ended = false;
+
+  try {
+    while (!ended) {
+      const { value, done } = await reader.read();
+      ended = done;
+      const input = pending + decoder.decode(value, { stream: !done });
+      // Preserve a trailing CR until the next chunk tells us whether it is part of CRLF.
+      const splitAt = !done && input.endsWith("\r") ? -1 : input.length;
+      const lines = input.slice(0, splitAt).split(/\r\n|[\r\n]/);
+      pending = lines.pop() + input.slice(splitAt);
+
+      for (const line of lines) {
+        if (line === "") {
+          if (data.length) yield data.join("\n");
+          data = [];
+        } else if (line.startsWith("data:")) {
+          data.push(line.slice(5).replace(/^ /, ""));
+        }
+      }
+    }
+  } finally {
+    if (!ended) await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
 }
 
 export async function listModels(provider, key, signal) {

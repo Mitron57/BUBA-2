@@ -18,7 +18,7 @@ The site uses HTML, CSS and JavaScript. Deployment needs no build dependencies, 
 
 BUBA sends each request directly to the selected provider. Your browser keeps the key for the tab's session, including page reloads. Use **Remove key** in settings to clear it immediately. The key is accessible to scripts running on the site's origin, so enter it only on a deployment you trust. Your provider bills API usage to your account.
 
-Stories, characters, universes and drafts are stored in this browser. Chat requests include the most recent 24 messages and the selected story context.
+Stories, characters, universes and drafts are stored in this browser. Chat requests include the most recent 24 messages and the selected story context. Responses stream into the chat and support Markdown formatting.
 
 ## Run locally
 

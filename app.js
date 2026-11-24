@@ -1,4 +1,4 @@
-import { providers, requestAnswer } from "./ai.js";
+import { listModels, providers, requestAnswer } from "./ai.js";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -17,6 +17,11 @@ let modalType = "";
 const apiSettings = $("#apiSettings");
 const apiStorageKey = "buba_api_settings";
 let apiConfig = readApiSettings();
+const modelSelect = $("#apiModel");
+const modelStatus = $("#apiModelStatus");
+const customModel = $("#apiCustomModel");
+let modelRequest;
+let modelLoadTimer;
 
 function readApiSettings() {
   try {
@@ -25,7 +30,7 @@ function readApiSettings() {
   } catch {
     // The app can still use a key in memory when storage is unavailable.
   }
-  return { provider: "openai", model: providers.openai.model, key: "" };
+  return { provider: "openai", model: providers.openai.models[0], key: "" };
 }
 
 function updateApiStatus() {
@@ -35,23 +40,111 @@ function updateApiStatus() {
   $("#modelPill").textContent = key ? `AI · ${model}` : "AI · API KEY NEEDED";
 }
 
+function showCustomModel() {
+  const visible = modelSelect.value === "";
+  $("#apiCustomModelField").hidden = !visible;
+  customModel.required = visible;
+}
+
+function setModelOptions(models, selected, extraLabel) {
+  modelSelect.replaceChildren(...models.map(({ id, name }) =>
+    new Option(name && name !== id ? `${name} (${id})` : id, id)
+  ));
+  if (selected && !models.some(model => model.id === selected)) {
+    modelSelect.add(new Option(`${selected} (${extraLabel})`, selected), 0);
+  }
+  modelSelect.add(new Option("Enter model ID…", ""));
+  modelSelect.value = selected;
+  showCustomModel();
+}
+
+function showSuggestedModels(provider, selected = providers[provider].models[0]) {
+  setModelOptions(providers[provider].models.map(id => ({ id })), selected, "saved model");
+  modelStatus.textContent = "Suggested models. Enter your key to load the provider’s catalog.";
+  $("#apiRefreshModels").disabled = !$("#apiKey").value.trim();
+}
+
+function cancelModelLoad() {
+  clearTimeout(modelLoadTimer);
+  modelRequest?.abort();
+  modelRequest = null;
+}
+
+async function loadModelOptions() {
+  cancelModelLoad();
+  const key = $("#apiKey").value.trim();
+  if (!key) return;
+
+  const provider = $("#apiProvider").value;
+  const request = new AbortController();
+  modelRequest = request;
+  modelStatus.textContent = "Loading models…";
+  $("#apiRefreshModels").disabled = true;
+
+  try {
+    const models = await listModels(provider, key, request.signal);
+    if (request.signal.aborted || !apiSettings.open) return;
+    if (!models.length) {
+      modelStatus.textContent = "No chat models were returned. You can use a suggested model or enter a model ID.";
+      return;
+    }
+
+    const current = modelSelect.value;
+    const defaultModel = providers[provider].models[0];
+    const savedModel = provider === apiConfig.provider && key === apiConfig.key ? apiConfig.model : "";
+    const suggested = models.find(({ id }) => id === defaultModel || id.startsWith(defaultModel + "-"));
+    const selected = current === defaultModel && current !== savedModel && !models.some(({ id }) => id === current)
+      ? suggested?.id ?? models[0].id
+      : current;
+    setModelOptions(models, selected, "outside catalog");
+    modelStatus.textContent = `${models.length} ${models.length === 1 ? "model" : "models"} from ${providers[provider].name}.`;
+  } catch (error) {
+    if (request.signal.aborted || !apiSettings.open) return;
+    const reason = error instanceof TypeError ? "Could not reach the provider’s catalog." : error.message;
+    modelStatus.textContent = `${reason} You can still choose from the list or enter a model ID.`;
+  } finally {
+    if (modelRequest === request) {
+      modelRequest = null;
+      $("#apiRefreshModels").disabled = !$("#apiKey").value.trim();
+    }
+  }
+}
+
 function openApiSettings() {
   if (apiSettings.open) return;
   $("#apiProvider").value = apiConfig.provider;
-  $("#apiModel").value = apiConfig.model;
   $("#apiKey").value = apiConfig.key;
+  customModel.value = "";
+  showSuggestedModels(apiConfig.provider, apiConfig.model);
   $("#apiClear").disabled = !apiConfig.key;
   apiSettings.showModal();
+  if (apiConfig.key) loadModelOptions();
 }
 
 $("#settingsBtn").onclick = openApiSettings;
 $("#topSettingsBtn").onclick = openApiSettings;
 $("#apiClose").onclick = () => apiSettings.close();
-apiSettings.addEventListener("close", () => { $("#apiKey").value = ""; });
+apiSettings.addEventListener("close", () => {
+  if (apiSettings.open) return;
+  cancelModelLoad();
+  $("#apiKey").value = "";
+});
 $("#apiProvider").onchange = event => {
-  $("#apiModel").value = providers[event.target.value].model;
-  $("#apiKey").value = event.target.value === apiConfig.provider ? apiConfig.key : "";
+  cancelModelLoad();
+  const provider = event.target.value;
+  $("#apiKey").value = provider === apiConfig.provider ? apiConfig.key : "";
+  customModel.value = "";
+  showSuggestedModels(provider, provider === apiConfig.provider ? apiConfig.model : undefined);
+  if ($("#apiKey").value) loadModelOptions();
 };
+$("#apiKey").addEventListener("input", () => {
+  cancelModelLoad();
+  const selected = modelSelect.value;
+  showSuggestedModels($("#apiProvider").value, selected);
+  if ($("#apiKey").value.trim()) modelLoadTimer = setTimeout(loadModelOptions, 650);
+});
+$("#apiRefreshModels").onclick = loadModelOptions;
+modelSelect.onchange = showCustomModel;
 $("#apiForm").onsubmit = event => {
   event.preventDefault();
   const key = $("#apiKey").value.trim();
@@ -62,7 +155,12 @@ $("#apiForm").onsubmit = event => {
   }
 
   const provider = $("#apiProvider").value;
-  const model = $("#apiModel").value.trim() || providers[provider].model;
+  const model = modelSelect.value || customModel.value.trim();
+  if (!model) {
+    customModel.value = "";
+    customModel.reportValidity();
+    return;
+  }
   apiConfig = { provider, model, key };
   try {
     sessionStorage.setItem(apiStorageKey, JSON.stringify(apiConfig));

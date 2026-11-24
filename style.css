@@ -10,3 +10,8 @@
 .api-clear{width:auto;height:auto;padding:8px 12px}
 .api-clear:disabled{opacity:.5;cursor:default}
 #modelPill{max-width:min(36vw,240px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.api-model-picker{display:flex;gap:8px}
+.api-model-picker select{flex:1;min-width:0;text-overflow:ellipsis}
+.api-model-picker button{white-space:nowrap}
+#apiModelStatus{margin:6px 0 0}

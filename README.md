@@ -13,8 +13,8 @@ The site uses HTML, CSS and JavaScript. Deployment needs no build dependencies, 
 ## Connect an AI provider
 
 1. Open **Settings & API** in BUBA.
-2. Choose OpenAI, Anthropic or Gemini and enter your own API key. Use the suggested model or enter a model ID available to your account.
-3. Save the settings and start a story.
+2. Choose OpenAI, Anthropic or Gemini and enter your own API key.
+3. Pick a model from the dropdown and save. BUBA loads the provider’s model catalog when you enter a key. Use **Refresh list** to reload it. Suggested models are available while the catalog loads or if it cannot be reached. **Enter model ID…** lets you use a model outside the dropdown.
 
 BUBA sends each request directly to the selected provider. Your browser keeps the key for the tab's session, including page reloads. Use **Remove key** in settings to clear it immediately. The key is accessible to scripts running on the site's origin, so enter it only on a deployment you trust. Your provider bills API usage to your account.
 

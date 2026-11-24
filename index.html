@@ -98,11 +98,19 @@
       <option value="anthropic">Anthropic</option>
       <option value="gemini">Gemini</option>
     </select>
-    <label class="field-label" for="apiModel">MODEL</label>
-    <input class="dark-input" id="apiModel" type="text" spellcheck="false">
     <label class="field-label" for="apiKey">API KEY</label>
     <input class="dark-input" id="apiKey" type="password" aria-describedby="apiKeyHelp" required spellcheck="false">
     <p class="api-help" id="apiKeyHelp">Your key is kept for this browser tab and sent directly to your chosen AI provider with each request.</p>
+    <label class="field-label" for="apiModel">MODEL</label>
+    <div class="api-model-picker">
+      <select class="dark-input" id="apiModel" aria-describedby="apiModelStatus"></select>
+      <button class="icon-button api-clear" type="button" id="apiRefreshModels">Refresh list</button>
+    </div>
+    <p class="api-help" id="apiModelStatus" role="status"></p>
+    <div id="apiCustomModelField" hidden>
+      <label class="field-label" for="apiCustomModel">MODEL ID</label>
+      <input class="dark-input" id="apiCustomModel" type="text" spellcheck="false">
+    </div>
     <div class="api-actions">
       <button class="primary-button" type="submit">Save settings</button>
       <button class="icon-button api-clear" type="button" id="apiClear">Remove key</button>

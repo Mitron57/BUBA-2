@@ -1,35 +1,25 @@
 # BUBA — AI Roleplay & Fiction Studio
 
-A responsive, dark-mode roleplay and creative-writing workspace built with plain HTML, CSS and JavaScript plus a small Node/Express backend.
+A static roleplay and creative-writing workspace with story history, character profiles, universe lore and a writing studio.
 
-## Features
-- Roleplay chat with persistent story context
-- Character profiles and universe/AU lore
-- Writing studio with local draft autosave
-- Story history and local browser persistence
-- Provider switch: OpenAI, Anthropic Claude or Google Gemini
-- API key stays on the backend (never in browser JavaScript)
+## Deploy on GitHub Pages
 
-## Requirements
-- Node.js 18 or newer
-- An API key from one supported provider
+1. In your GitHub repository, open **Settings → Pages** and choose **GitHub Actions** as the source.
+2. In **Actions**, run **Deploy BUBA to GitHub Pages** on `main`. Later pushes to `main` deploy automatically.
+3. Open the deployment URL. For this fork, it is `https://mitron57.github.io/BUBA/`.
+
+The site uses HTML, CSS and JavaScript. Deployment needs no build dependencies, backend or shared API key.
+
+## Connect an AI provider
+
+1. Open **Settings & API** in BUBA.
+2. Choose OpenAI, Anthropic or Gemini and enter your own API key. Use the suggested model or enter a model ID available to your account.
+3. Save the settings and start a story.
+
+BUBA sends each request directly to the selected provider. Your browser keeps the key for the tab's session, including page reloads. Use **Remove key** in settings to clear it immediately. The key is accessible to scripts running on the site's origin, so enter it only on a deployment you trust. Your provider bills API usage to your account.
+
+Stories, characters, universes and drafts are stored in this browser. Chat requests include the most recent 24 messages and the selected story context.
 
 ## Run locally
-1. Install Node.js.
-2. Open this folder in Terminal.
-3. Run `npm install`.
-4. Copy `.env.example` to `.env`.
-5. Set `AI_PROVIDER` to `openai`, `anthropic` or `gemini`.
-6. Add the matching key:
-   - `OPENAI_API_KEY`
-   - `ANTHROPIC_API_KEY`
-   - `GEMINI_API_KEY`
-7. Run `npm start`.
-8. Visit `http://localhost:3000`.
 
-## Important
-- ChatGPT subscriptions do not include API usage. API usage is billed separately by the provider.
-- Never commit `.env` or share your API key.
-- Current stories, characters, universes and writing drafts are stored in this browser's localStorage. They are not yet synced across devices or backed up to a database.
-- This starter is intended for local development. Before public deployment, add user accounts, database storage, rate limiting, request size limits, abuse protections and HTTPS.
-- The current chat sends the most recent 24 messages plus the selected character, universe and story memory. For very long stories, add a summarization/long-term memory pipeline in a later version.
+From this directory, run `python3 -m http.server 8000` and visit `http://localhost:8000`. Configure a key in the app the same way as on GitHub Pages.

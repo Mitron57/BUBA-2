@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="./style.css">
 </head>
 <body>
 <div class="app-shell">
@@ -23,14 +23,14 @@
     <div class="nav-label">RECENT STORIES</div>
     <div id="recentList" class="recent-list"><div class="empty-small">Your stories will appear here.</div></div>
     <div class="sidebar-bottom">
-      <div class="status-line"><span class="status-dot" id="statusDot"></span><span id="statusText">Checking AI connection…</span></div>
+      <div class="status-line"><span class="status-dot" id="statusDot"></span><span id="statusText">API key needed</span></div>
       <button class="settings-link" id="settingsBtn">⚙ Settings & API</button>
       <div class="profile"><div class="avatar">B</div><div><b>Your writing space</b><small>Private on this device</small></div><span class="profile-dots">•••</span></div>
     </div>
   </aside>
 
   <main class="main">
-    <header class="topbar"><div class="mobile-brand">buba<span>.</span></div><div class="crumb" id="crumb">WORKSPACE <span>/</span> ROLEPLAY CHAT</div><div class="top-actions"><span class="model-pill" id="modelPill">AI · NOT CONNECTED</span><button class="icon-button" id="focusBtn" title="Focus mode">⛶</button></div></header>
+    <header class="topbar"><div class="mobile-brand">buba<span>.</span></div><div class="crumb" id="crumb">WORKSPACE <span>/</span> ROLEPLAY CHAT</div><div class="top-actions"><span class="model-pill" id="modelPill">AI · API KEY NEEDED</span><button class="icon-button" id="topSettingsBtn" type="button" title="Settings &amp; API" aria-label="Settings &amp; API">⚙</button><button class="icon-button" id="focusBtn" title="Focus mode">⛶</button></div></header>
 
     <section class="view active" id="chatView">
       <div class="chat-layout">
@@ -88,6 +88,27 @@
 <div class="modal-backdrop" id="modalBackdrop">
   <div class="modal" role="dialog" aria-modal="true"><button class="modal-close" id="modalClose">×</button><div class="eyebrow" id="modalEyebrow">CREATE</div><h2 id="modalTitle">New character</h2><form id="entityForm"><div id="modalFields"></div><button class="primary-button full" type="submit">Save to BUBA</button></form></div>
 </div>
-<div class="toast" id="toast"></div>
-<script src="/app.js"></script>
+<dialog class="modal api-settings" id="apiSettings" aria-labelledby="apiSettingsTitle">
+  <button class="modal-close" id="apiClose" type="button" aria-label="Close API settings">×</button>
+  <h2 id="apiSettingsTitle">Settings &amp; API</h2>
+  <form id="apiForm" autocomplete="off">
+    <label class="field-label" for="apiProvider">PROVIDER</label>
+    <select class="dark-input" id="apiProvider">
+      <option value="openai">OpenAI</option>
+      <option value="anthropic">Anthropic</option>
+      <option value="gemini">Gemini</option>
+    </select>
+    <label class="field-label" for="apiModel">MODEL</label>
+    <input class="dark-input" id="apiModel" type="text" spellcheck="false">
+    <label class="field-label" for="apiKey">API KEY</label>
+    <input class="dark-input" id="apiKey" type="password" aria-describedby="apiKeyHelp" required spellcheck="false">
+    <p class="api-help" id="apiKeyHelp">Your key is kept for this browser tab and sent directly to your chosen AI provider with each request.</p>
+    <div class="api-actions">
+      <button class="primary-button" type="submit">Save settings</button>
+      <button class="icon-button api-clear" type="button" id="apiClear">Remove key</button>
+    </div>
+  </form>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+<script type="module" src="./app.js"></script>
 </body></html>

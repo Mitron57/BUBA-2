@@ -1,3 +1,5 @@
+import { providers, requestAnswer } from "./ai.js";
+
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const store = {
@@ -10,7 +12,78 @@ let stories = store.get("stories", []);
 let currentStory = null;
 let messages = [];
 let busy = false;
+let pendingChat = null;
 let modalType = "";
+const apiSettings = $("#apiSettings");
+const apiStorageKey = "buba_api_settings";
+let apiConfig = readApiSettings();
+
+function readApiSettings() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(apiStorageKey));
+    if (saved && Object.hasOwn(providers, saved.provider) && saved.key && saved.model) return saved;
+  } catch {
+    // The app can still use a key in memory when storage is unavailable.
+  }
+  return { provider: "openai", model: providers.openai.model, key: "" };
+}
+
+function updateApiStatus() {
+  const { provider, model, key } = apiConfig;
+  $("#statusDot").classList.toggle("online", Boolean(key));
+  $("#statusText").textContent = key ? `${providers[provider].name} · key saved` : "API key needed";
+  $("#modelPill").textContent = key ? `AI · ${model}` : "AI · API KEY NEEDED";
+}
+
+function openApiSettings() {
+  if (apiSettings.open) return;
+  $("#apiProvider").value = apiConfig.provider;
+  $("#apiModel").value = apiConfig.model;
+  $("#apiKey").value = apiConfig.key;
+  $("#apiClear").disabled = !apiConfig.key;
+  apiSettings.showModal();
+}
+
+$("#settingsBtn").onclick = openApiSettings;
+$("#topSettingsBtn").onclick = openApiSettings;
+$("#apiClose").onclick = () => apiSettings.close();
+apiSettings.addEventListener("close", () => { $("#apiKey").value = ""; });
+$("#apiProvider").onchange = event => {
+  $("#apiModel").value = providers[event.target.value].model;
+  $("#apiKey").value = event.target.value === apiConfig.provider ? apiConfig.key : "";
+};
+$("#apiForm").onsubmit = event => {
+  event.preventDefault();
+  const key = $("#apiKey").value.trim();
+  if (!key) {
+    $("#apiKey").value = "";
+    $("#apiKey").reportValidity();
+    return;
+  }
+
+  const provider = $("#apiProvider").value;
+  const model = $("#apiModel").value.trim() || providers[provider].model;
+  apiConfig = { provider, model, key };
+  try {
+    sessionStorage.setItem(apiStorageKey, JSON.stringify(apiConfig));
+    toast("API settings saved for this tab.");
+  } catch {
+    toast("API settings saved until this page is reloaded.");
+  }
+  updateApiStatus();
+  apiSettings.close();
+};
+$("#apiClear").onclick = () => {
+  try {
+    sessionStorage.removeItem(apiStorageKey);
+  } catch {
+    // Storage may be unavailable. Clear the in-memory copy below.
+  }
+  apiConfig = { ...apiConfig, key: "" };
+  updateApiStatus();
+  apiSettings.close();
+  toast("API key removed.");
+};
 
 function toast(message) { const el=$("#toast"); el.textContent=message; el.classList.add("show"); setTimeout(()=>el.classList.remove("show"),2600); }
 function saveAll(){store.set("characters",characters);store.set("universes",universes);store.set("stories",stories);}
@@ -38,7 +111,10 @@ $("#focusBtn").onclick=()=>document.body.classList.toggle("focus");
 
 function renderMessages(){
   const box=$("#messages");box.innerHTML="";
-  messages.forEach(m=>{
+  const visibleMessages = pendingChat === messages
+    ? [...messages, { role: "assistant", content: "…" }]
+    : messages;
+  visibleMessages.forEach(m=>{
     const row=document.createElement("div");row.className="message "+m.role;
     const avatar=document.createElement("div");avatar.className="message-avatar";avatar.textContent=m.role==="assistant"?"b.":"Y";
     const body=document.createElement("div");body.className="message-body";
@@ -90,20 +166,50 @@ If the user adds new canon, follow it. If details conflict, prioritize the lates
 }
 async function sendMessage(prefill){
   const input=$("#promptInput");const text=(prefill??input.value).trim();
-  if(!text||busy)return;
-  if(!currentStory)newStory();
-  messages.push({role:"user",content:text});input.value="";input.style.height="auto";showWelcome(false);renderMessages();persistStory();
-  busy=true;$("#sendBtn").disabled=true;
-  const wait={role:"assistant",content:"…"};messages.push(wait);renderMessages();
-  try{
-    const payload=messages.filter(m=>m.content!=="…").slice(-24);
-    const res=await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({messages:payload,systemPrompt:buildSystemPrompt()})});
-    const data=await res.json();if(!res.ok)throw new Error(data.error||"The AI request failed.");
-    messages[messages.length-1]={role:"assistant",content:data.answer||"I couldn't generate a response. Try again."};
-  }catch(err){
-    messages.pop();messages.push({role:"assistant",content:`I couldn't reach the AI yet.\n\n${err.message}\n\nYour message is still in this chat. Configure an API key in Settings & API, then send it again.`});
+  if (!text || busy) return;
+  if (!apiConfig.key) {
+    input.value = text;
+    openApiSettings();
+    return;
   }
-  busy=false;$("#sendBtn").disabled=false;renderMessages();persistStory();
+
+  if (!currentStory) newStory();
+  const story = currentStory;
+  const chat = messages;
+  chat.push({ role: "user", content: text });
+  input.value = "";
+  input.style.height = "auto";
+  showWelcome(false);
+  renderMessages();
+  persistStory();
+
+  busy = true;
+  $("#sendBtn").disabled = true;
+  pendingChat = chat;
+  renderMessages();
+
+  try {
+    const payload = chat.slice(-24);
+    const answer = await requestAnswer(apiConfig, buildSystemPrompt(), payload);
+    chat.push({
+      role: "assistant",
+      content: answer || "I couldn't generate a response. Try again."
+    });
+  } catch (error) {
+    toast(error instanceof TypeError
+      ? "Could not reach the AI provider. Check your connection and try again."
+      : error.message);
+  } finally {
+    busy = false;
+    pendingChat = null;
+    $("#sendBtn").disabled = false;
+    if (currentStory === story) {
+      renderMessages();
+      persistStory();
+    } else {
+      store.set("stories", stories);
+    }
+  }
 }
 $("#sendBtn").onclick=()=>sendMessage();
 $("#promptInput").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();}});
@@ -145,11 +251,4 @@ $("#polishDraft").onclick=()=>{
   const draft=$("#draftText").value.trim();if(!draft){toast("Write a few lines first.");return;}
   switchView("chat");sendMessage(`Please continue or polish this draft while preserving its voice, events and characterisation. Do not summarize it. Here is the draft:\n\n${draft}`);
 };
-async function checkStatus(){
-  try{const r=await fetch("/api/status");const d=await r.json();$("#statusDot").classList.toggle("online",d.configured);$("#statusText").textContent=d.configured?`${d.provider.toUpperCase()} connected`:`${d.provider.toUpperCase()} · API key needed`;$("#modelPill").textContent=d.configured?`AI · ${d.model}`:"AI · NOT CONNECTED";}
-  catch{$("#statusText").textContent="Local server unavailable";}
-}
-$("#settingsBtn").onclick=()=>{
-  alert("BUBA API setup:\n\n1. Open the project folder on your computer.\n2. Rename .env.example to .env.\n3. Choose AI_PROVIDER=openai, anthropic or gemini.\n4. Paste the matching API key into its variable.\n5. Run npm install, then npm start.\n6. Open http://localhost:3000\n\nNever share your API key or put it in public frontend code.");
-};
-newStory();renderEntities();refreshSelects();updateRecent();updateWordCount();checkStatus();
+newStory();renderEntities();refreshSelects();updateRecent();updateWordCount();updateApiStatus();

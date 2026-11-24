@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111014">
+  <title>BUBA — your fictional universe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="brand" href="#"><span class="brand-mark">b.</span><span>BUBA<small>YOUR FICTIONAL UNIVERSE</small></span></a>
+    <button class="new-chat" id="newChat"><span>＋</span> New story</button>
+    <div class="nav-label">WORKSPACE</div>
+    <button class="nav-item active" data-view="chat"><span>◌</span> Roleplay chat</button>
+    <button class="nav-item" data-view="characters"><span>♙</span> Characters</button>
+    <button class="nav-item" data-view="universes"><span>✧</span> Universes & AUs</button>
+    <button class="nav-item" data-view="writing"><span>▤</span> Writing studio</button>
+    <div class="sidebar-divider"></div>
+    <div class="nav-label">RECENT STORIES</div>
+    <div id="recentList" class="recent-list"><div class="empty-small">Your stories will appear here.</div></div>
+    <div class="sidebar-bottom">
+      <div class="status-line"><span class="status-dot" id="statusDot"></span><span id="statusText">Checking AI connection…</span></div>
+      <button class="settings-link" id="settingsBtn">⚙ Settings & API</button>
+      <div class="profile"><div class="avatar">B</div><div><b>Your writing space</b><small>Private on this device</small></div><span class="profile-dots">•••</span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar"><div class="mobile-brand">buba<span>.</span></div><div class="crumb" id="crumb">WORKSPACE <span>/</span> ROLEPLAY CHAT</div><div class="top-actions"><span class="model-pill" id="modelPill">AI · NOT CONNECTED</span><button class="icon-button" id="focusBtn" title="Focus mode">⛶</button></div></header>
+
+    <section class="view active" id="chatView">
+      <div class="chat-layout">
+        <div class="chat-main">
+          <div class="welcome" id="welcome">
+            <div class="eyebrow"><span class="sparkle">✦</span> A SPACE FOR STORIES THAT STAY WITH YOU</div>
+            <h1>Every universe<br>starts <em>somewhere.</em></h1>
+            <p>Build a world. Become a character. Follow the story wherever it goes.</p>
+            <div class="starter-grid">
+              <button class="starter" data-prompt="Let's create a slow-burn romance AU. Help me establish the setting and the two main characters."><span>♡</span><b>Start a new AU</b><small>Build a world from scratch</small></button>
+              <button class="starter" data-prompt="I want to start a roleplay. Ask me for the setting, characters, and the dynamic between them."><span>✧</span><b>Begin roleplay</b><small>Step into another story</small></button>
+              <button class="starter" data-prompt="Help me write a cinematic, emotionally intense opening scene for a fanfiction. Ask me for the premise first."><span>▤</span><b>Write a scene</b><small>Find the first sentence</small></button>
+            </div>
+          </div>
+          <div class="messages" id="messages" aria-live="polite"></div>
+          <div class="composer-wrap">
+            <div class="composer-tools"><span class="writing-mode">✦ CREATIVE MODE</span><span class="composer-hint">Enter to send · Shift + Enter for a new line</span></div>
+            <div class="composer"><textarea id="promptInput" rows="1" placeholder="Write your next move…"></textarea><button id="sendBtn" class="send-button" aria-label="Send message">↑</button></div>
+            <div class="composer-foot">BUBA can make mistakes. Your story, your rules.</div>
+          </div>
+        </div>
+        <aside class="story-panel">
+          <div class="panel-head"><span>STORY SETTINGS</span><button id="clearContext" title="Clear story setup">↺</button></div>
+          <label class="field-label" for="storyTitle">STORY TITLE</label><input class="dark-input" id="storyTitle" placeholder="Untitled universe">
+          <label class="field-label" for="characterSelect">MAIN CHARACTER</label><select class="dark-input" id="characterSelect"><option value="">Choose a character</option></select>
+          <label class="field-label" for="universeSelect">UNIVERSE / AU</label><select class="dark-input" id="universeSelect"><option value="">Choose a universe</option></select>
+          <label class="field-label" for="styleSelect">WRITING STYLE</label><select class="dark-input" id="styleSelect"><option>Literary & descriptive</option><option>Cinematic & atmospheric</option><option>Natural & conversational</option><option>Dark & psychological</option><option>Soft & romantic</option><option>Witty & fast-paced</option></select>
+          <label class="field-label" for="povSelect">POINT OF VIEW</label><select class="dark-input" id="povSelect"><option>Third person</option><option>First person</option><option>Second person</option><option>Let AI decide</option></select>
+          <label class="field-label" for="memoryInput">STORY MEMORY / LORE</label><textarea class="dark-input lore-input" id="memoryInput" placeholder="Important facts, past events, relationships, things the AI must remember…"></textarea>
+          <div class="panel-note"><span>✦</span><p>Memory is added to the AI's context with every message in this story.</p></div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="view content-view" id="charactersView">
+      <div class="page-heading"><div class="eyebrow">THE PEOPLE WHO MAKE THE STORY</div><h1>Characters<span>.</span></h1><p>Create the people your universe revolves around.</p></div>
+      <div class="create-card"><div><b>Create a character</b><small>Give your character a voice, history and a reason to exist.</small></div><button class="primary-button" id="addCharacter">＋ New character</button></div>
+      <div class="card-grid" id="characterGrid"></div>
+    </section>
+
+    <section class="view content-view" id="universesView">
+      <div class="page-heading"><div class="eyebrow">A WORLD OF YOUR OWN</div><h1>Universes<span>.</span></h1><p>Keep every AU, timeline and fictional world in its own place.</p></div>
+      <div class="create-card"><div><b>Create a universe</b><small>Set the rules, atmosphere and history of your world.</small></div><button class="primary-button" id="addUniverse">＋ New universe</button></div>
+      <div class="card-grid" id="universeGrid"></div>
+    </section>
+
+    <section class="view content-view writing-view" id="writingView">
+      <div class="page-heading"><div class="eyebrow">THE WRITING ROOM</div><h1>Writing studio<span>.</span></h1><p>A quiet place to shape scenes, chapters and unfinished ideas.</p></div>
+      <div class="editor-card"><div class="editor-toolbar"><input id="chapterTitle" placeholder="Chapter title…"><span>YOUR DRAFT · SAVED LOCALLY</span></div><textarea id="draftText" placeholder="The first line is always the hardest. Start anywhere…"></textarea><div class="editor-bottom"><span id="wordCount">0 words</span><button class="primary-button" id="polishDraft">✦ Ask AI to continue / polish</button></div></div>
+      <p class="studio-note">Your draft is saved automatically in this browser. AI actions require an API key.</p>
+    </section>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" role="dialog" aria-modal="true"><button class="modal-close" id="modalClose">×</button><div class="eyebrow" id="modalEyebrow">CREATE</div><h2 id="modalTitle">New character</h2><form id="entityForm"><div id="modalFields"></div><button class="primary-button full" type="submit">Save to BUBA</button></form></div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="/app.js"></script>
+</body></html>

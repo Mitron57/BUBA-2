@@ -6,7 +6,7 @@ A static roleplay and creative-writing workspace with story history, character p
 
 1. In your GitHub repository, open **Settings → Pages** and choose **GitHub Actions** as the source.
 2. In **Actions**, run **Deploy BUBA to GitHub Pages** on `main`. Later pushes to `main` deploy automatically.
-3. Open the deployment URL. For this fork, it is `https://mitron57.github.io/BUBA/`.
+3. Open the deployment URL. For this fork, it is `https://mitron57.github.io/BUBA-2/`.
 
 The site uses HTML, CSS and JavaScript. Deployment needs no build dependencies, backend or shared API key.
 
